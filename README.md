@@ -1,5 +1,7 @@
 # UR10e Simulator
 
+![license](https://img.shields.io/badge/license-MIT-blue) ![three.js](https://img.shields.io/badge/built%20with-three.js-000000)
+
 Interactive, user-controllable 3D simulation of a **Universal Robots UR10e** built with
 [Three.js](https://threejs.org/) — real joint kinematics, motion physics, self-collision
 protection, a teach-pendant UI, and a smart attachment catalogue.
