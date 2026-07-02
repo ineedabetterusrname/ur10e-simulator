@@ -4,6 +4,8 @@ Interactive, user-controllable 3D simulation of a **Universal Robots UR10e** bui
 [Three.js](https://threejs.org/) — real joint kinematics, motion physics, self-collision
 protection, a teach-pendant UI, and a smart attachment catalogue.
 
+**Live demo:** https://ineedabetterusrname.github.io/ur10e-simulator/
+
 ## Run it
 
 ```bash
@@ -95,3 +97,7 @@ the math can never drift from what you see on screen.
 - **Jog a joint** — hold the − / + buttons, or drag its slider to a target
 - **Move the TCP** — hold a Cartesian jog button (base frame)
 - **E-stop** — red button, then *Reset* to recover
+
+## License
+
+[MIT](LICENSE)
