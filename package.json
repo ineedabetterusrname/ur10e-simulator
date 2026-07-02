@@ -1,0 +1,19 @@
+{
+  "name": "ur10e-simulator",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive 3D UR10e robot arm simulator with teach pendant, self-collision and an attachment catalogue",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}
