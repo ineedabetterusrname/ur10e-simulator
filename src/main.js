@@ -28,6 +28,22 @@ const status = new StatusBar(document.getElementById('statusbar'), { motion, kin
 const triad = new THREE.AxesHelper(0.09);
 robot.toolPoint.add(triad);
 
+// Compact embed mode (?embed=1): used when the simulator is shown inside a
+// small iframe/preview pane. Collapse both side panels, hide the status bar,
+// and gently auto-rotate the view until the user interacts.
+if (new URLSearchParams(location.search).has('embed')) {
+  document.body.classList.add('embed');
+  document.getElementById('catalogue').classList.add('collapsed');
+  pendantEl.classList.add('collapsed');
+  world.controls.autoRotate = true;
+  world.controls.autoRotateSpeed = 0.6;
+  const stopRotate = () => {
+    world.controls.autoRotate = false;
+    world.controls.removeEventListener('start', stopRotate);
+  };
+  world.controls.addEventListener('start', stopRotate);
+}
+
 let safeQ = motion.getPositions();
 const clock = new THREE.Clock();
 

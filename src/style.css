@@ -26,6 +26,9 @@ body {
 
 .hidden { display: none !important; }
 
+/* compact embed mode — hide the bottom status bar to maximise the 3D view */
+body.embed #statusbar { display: none; }
+
 /* ---------------- shared widgets ---------------- */
 h3 {
   margin: 14px 0 8px;
