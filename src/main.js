@@ -8,6 +8,7 @@ import { Kinematics } from './robot/kinematics.js';
 import { CollisionChecker } from './robot/collision.js';
 import { AttachmentManager } from './catalogue/manager.js';
 import { Pendant } from './ui/pendant.js';
+import { CodeLab } from './code/codelab.js';
 import { CataloguePanel } from './ui/cataloguePanel.js';
 import { StatusBar } from './ui/statusbar.js';
 
@@ -27,6 +28,7 @@ const manager = new AttachmentManager(robot, motion, world);
 
 const pendantEl = document.getElementById('pendant');
 const pendant = new Pendant(pendantEl, { motion, kin, robot, manager });
+const codeLab = new CodeLab(pendant.panes.code, { motion, kin, robot });
 new CataloguePanel(document.getElementById('catalogue'), manager);
 const status = new StatusBar(document.getElementById('statusbar'), { motion, kin, manager });
 
@@ -58,6 +60,7 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
 
   pendant.applyCartesianJog(dt);
+  codeLab.update(dt);
   motion.update(dt);
   motion.apply();
   robot.root.updateMatrixWorld(true);

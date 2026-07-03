@@ -22,6 +22,8 @@ npm run build      # production bundle -> dist/
 npm run preview    # serve the production bundle
 npm run smoke      # headless kinematics + collision test suite (no browser)
 npm run meshcheck  # headless check that the official mesh registers on the DH chain
+npm run codecheck  # headless Code-lab checks (recording, IK/moveL, playback, imports)
+npm run pycheck    # end-to-end ur_rtde Python mock test on real Pyodide
 ```
 
 ## What's simulated
@@ -66,7 +68,36 @@ analytic DH product and the published zero-pose flange position (−1184.25, −
 | **Move** | Joint jog (hold −/+ or drag sliders) and Cartesian **TCP jog** in the base frame (X/Y/Z/RX/RY/RZ) driven by damped-least-squares IK; live TCP readout; Home pose |
 | **Tool** | *Adaptive* — controls contributed by whatever is currently mounted |
 | **Program** | Save waypoints, play once or loop, jump to any waypoint |
+| **Code** | *Code lab* — run your own robot code on the simulator (below) |
 | **Status** | Joint positions/velocities, payload, machine state |
+
+### Code lab — test your robot code in the browser
+The **Code** tab runs student programs against the simulated UR10e, with the
+same motion limits and collision protection as the rest of the sim — a
+pre-flight check before booking time on the real robot:
+
+- **Python (ur_rtde)** — paste or upload the *same script* you would run on
+  the real robot: `rtde_control` / `rtde_receive` / `dashboard_client` are
+  mocked in-browser (Python runs client-side via Pyodide, lazy-loaded on
+  first Run). `moveJ`, `moveL` (straight TCP lines via IK), `moveJ_IK`,
+  `servoJ`, `speedL`/`speedJ` streaming, `getActualQ`, `getActualTCPPose`,
+  `getInverseKinematics`, `time.sleep`, the `__main__` guard … all work;
+  state reads return the kinematically propagated pose. `print()` and
+  tracebacks stream to the built-in console, and common beginner mistakes
+  get targeted hints (degrees vs radians, millimetres vs metres,
+  desktop-only imports like `cv2`, runaway loops). An **Examples…**
+  dropdown ships three ready-to-run sample programs (also in the Robo Lab
+  repo), and a **⛶ Wide** toggle grows the editor for real editing.
+- **Grasshopper / toolpaths** — GH definitions can't execute in a browser,
+  but the Code lab plays exported target programs (`.json` with joint or
+  pose moves, or a plain `.csv` of joint rows). A no-plugins GhPython export
+  snippet is provided in [docs/grasshopper-export.md](docs/grasshopper-export.md).
+- Programs are validated at record time (joint limits, reachability) and
+  played back with commanded speeds; a self-collision or floor hit
+  protective-stops the run and reports **which command** tripped it.
+- Limitation: scripts execute ahead of the visualised motion, so real-time
+  closed-loop control (e.g. 500 Hz `servoJ` streaming off live feedback)
+  is approximated, not faithful. Sequential move programs are exact.
 
 ### Catalogue (left panel)
 Click a card to mount/unmount. Parts apply **smartly**:

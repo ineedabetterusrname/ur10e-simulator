@@ -9,13 +9,16 @@
     "build": "vite build",
     "preview": "vite preview",
     "smoke": "node scripts/smoke.mjs",
-    "meshcheck": "node scripts/meshcheck.mjs"
+    "meshcheck": "node scripts/meshcheck.mjs",
+    "codecheck": "node scripts/codecheck.mjs",
+    "pycheck": "node scripts/pycheck.mjs"
   },
   "dependencies": {
     "three": "^0.182.0",
     "three-mesh-bvh": "^0.9.10"
   },
   "devDependencies": {
+    "pyodide": "^314.0.2",
     "vite": "^7.0.0"
   }
 }

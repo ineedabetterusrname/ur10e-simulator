@@ -57,7 +57,7 @@ export class Pendant {
     this.tabs = {};
     this.panes = {};
     const tabBar = h('div.tabbar');
-    for (const [id, label] of [['move', 'Move'], ['tool', 'Tool'], ['prog', 'Program'], ['status', 'Status']]) {
+    for (const [id, label] of [['move', 'Move'], ['tool', 'Tool'], ['prog', 'Program'], ['code', 'Code'], ['status', 'Status']]) {
       this.tabs[id] = h('button.tab', { text: label, onclick: () => this._selectTab(id) });
       tabBar.append(this.tabs[id]);
       this.panes[id] = h('div.pane');
