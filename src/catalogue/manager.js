@@ -44,6 +44,7 @@ export class AttachmentManager {
     inst.def = def;
     this.active.set(id, inst);
     if (def.category === 'base') this._mountTrack(inst);
+    else if (def.category === 'world') inst.attachWorld?.(this.world);
     this._rebuildToolChain();
     this._emit();
   }
@@ -59,6 +60,7 @@ export class AttachmentManager {
     const inst = this.active.get(id);
     this.active.delete(id);
     if (inst.def.category === 'base') this._unmountTrack(inst);
+    else if (inst.def.category === 'world') inst.detachWorld?.(this.world);
     else inst.group.removeFromParent();
   }
 
@@ -117,8 +119,22 @@ export class AttachmentManager {
   /** Total tool payload in kg (flange-mounted parts only). */
   payload() {
     return [...this.active.values()]
-      .filter((i) => i.def.category !== 'base')
+      .filter((i) => i.def.category !== 'base' && i.def.category !== 'world')
       .reduce((s, i) => s + i.def.mass, 0);
+  }
+
+  /** Mounted parallel-gripper API (OnRobot 2FG7), or null. */
+  get gripper() {
+    return this._byCategory('endEffector')[0]?.gripperApi ?? null;
+  }
+
+  /**
+   * Width command from Code-lab playback [m]; returns the motion duration
+   * so the runner can wait for the fingers.
+   */
+  commandGripper(width) {
+    const g = this.gripper;
+    return g ? g.command(width) : 0;
   }
 
   /** Active wrist camera to render as picture-in-picture, or null. */

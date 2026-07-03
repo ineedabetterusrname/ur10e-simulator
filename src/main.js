@@ -9,6 +9,7 @@ import { CollisionChecker } from './robot/collision.js';
 import { AttachmentManager } from './catalogue/manager.js';
 import { Pendant } from './ui/pendant.js';
 import { CodeLab } from './code/codelab.js';
+import { BrickSystem } from './world/bricks.js';
 import { CataloguePanel } from './ui/cataloguePanel.js';
 import { StatusBar } from './ui/statusbar.js';
 
@@ -24,11 +25,12 @@ applyRealMesh(robot, `${import.meta.env.BASE_URL}ur10e.glb`)
 const motion = new MotionController(robot);
 const kin = new Kinematics(robot);
 const collider = new CollisionChecker(robot);
+world.bricks = new BrickSystem(world, robot, () => manager.gripper);
 const manager = new AttachmentManager(robot, motion, world);
 
 const pendantEl = document.getElementById('pendant');
 const pendant = new Pendant(pendantEl, { motion, kin, robot, manager });
-const codeLab = new CodeLab(pendant.panes.code, { motion, kin, robot });
+const codeLab = new CodeLab(pendant.panes.code, { motion, kin, robot, manager });
 new CataloguePanel(document.getElementById('catalogue'), manager);
 const status = new StatusBar(document.getElementById('statusbar'), { motion, kin, manager });
 
@@ -79,6 +81,7 @@ function tick() {
   }
 
   manager.update(dt);
+  world.bricks.update(dt);
   pendant.updateReadouts(dt);
   status.update(dt);
   world.controls.update();

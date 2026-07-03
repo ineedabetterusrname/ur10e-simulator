@@ -103,9 +103,17 @@ pre-flight check before booking time on the real robot:
 Click a card to mount/unmount. Parts apply **smartly**:
 
 - **End effectors** *(exclusive — a new one replaces the current one)*
-  - 2-Finger Gripper — open/close buttons + stroke slider
+  - OnRobot 2FG7 Gripper — the lab's parallel gripper (35–73 mm external
+    grip, dimensioned from the datasheet). Fingers move at real gripper
+    speed and **stop on object contact**; controllable from the Tool tab
+    and from Python (`from onrobot import TwoFG7`)
   - Vacuum Gripper — suction toggle with status lamp
   - Welding Torch — arc toggle with flicker glow
+- **World objects** — Bricks (graspable): white 120×60×60 mm cuboids on the
+  floor. Drag to move them, rotate with the Tool-tab slider; the 2FG7 physically picks
+  them up (contact-stop grasp), they ride the TCP, and release drops them
+  with gravity onto the floor or **stack onto other bricks** — enough
+  physics to build the bricklaying project's wall
 - **Inline** — Force-Torque Sensor mounts *between* flange and tool, shifts the whole
   tool stack by 40 mm, and streams a live gravity wrench computed from the mounted payload
 - **Wrist add-ons** — Wrist Camera (live picture-in-picture view + FOV control) and a

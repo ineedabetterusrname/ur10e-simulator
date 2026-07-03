@@ -58,6 +58,7 @@ export class SimBridge {
     this._time = 0;
     this._calls = 0;
     this._speedLabel = null;
+    this._gripW = 0.073; // virtual 2FG7 width, starts fully open
   }
 
   /** Guards every bridge call against scripts that loop forever on reads. */
@@ -222,6 +223,25 @@ export class SimBridge {
       this._time += tStep;
     }
     this._virtualQ = seed;
+  }
+
+  /** OnRobot 2FG7 width command, in millimetres (external grip 35–73). */
+  gripMove(widthMm) {
+    this._tick();
+    this._speedLabel = null;
+    if (!Number.isFinite(widthMm)) throw new Error('gripper: width is not a number');
+    const w = THREE.MathUtils.clamp(widthMm, 35, 73) / 1000;
+    this._record({
+      type: 'grip', width: w,
+      label: `gripper #${++this._cmd} → ${(w * 1000).toFixed(0)} mm`,
+    });
+    this._time += Math.abs(w - this._gripW) / 0.15 + 0.1;
+    this._gripW = w;
+  }
+
+  gripWidth() {
+    this._tick();
+    return this._gripW * 1000;
   }
 
   sleep(s) {

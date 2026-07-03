@@ -1,4 +1,4 @@
-import { RTDE_CONTROL_PY, RTDE_RECEIVE_PY, DASHBOARD_PY, PRELUDE_PY } from './pymocks.js';
+import { RTDE_CONTROL_PY, RTDE_RECEIVE_PY, DASHBOARD_PY, ONROBOT_PY, PRELUDE_PY } from './pymocks.js';
 
 const PYODIDE_BASE = 'https://cdn.jsdelivr.net/pyodide/v314.0.2/full/';
 
@@ -47,6 +47,8 @@ export class PyRunner {
       speed_l: (x, y, z, rx, ry, rz, t) => b.speedL([x, y, z, rx, ry, rz], t),
       speed_j: (q0, q1, q2, q3, q4, q5, t) => b.speedJ([q0, q1, q2, q3, q4, q5], t),
       speed_stop: () => b.speedStop(),
+      grip_move: (mm) => b.gripMove(mm),
+      grip_width: () => b.gripWidth(),
       sleep: (s) => b.sleep(s),
       get_q: () => b.getQ(),
       get_tcp: () => b.getTCP(),
@@ -59,6 +61,7 @@ export class PyRunner {
     pyodide.FS.writeFile('rtde_control.py', RTDE_CONTROL_PY);
     pyodide.FS.writeFile('rtde_receive.py', RTDE_RECEIVE_PY);
     pyodide.FS.writeFile('dashboard_client.py', DASHBOARD_PY);
+    pyodide.FS.writeFile('onrobot.py', ONROBOT_PY);
     pyodide.runPython(PRELUDE_PY);
 
     this.pyodide = pyodide;

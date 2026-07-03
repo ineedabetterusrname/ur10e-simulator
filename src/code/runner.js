@@ -17,6 +17,8 @@ export class CodeRunner {
     this._lastCmd = null;
     this._onLog = null;
     this._onDone = null;
+    /** Optional hook: (widthMetres) => animation duration in seconds. */
+    this.onGripper = null;
   }
 
   get progress() { return this.active ? `${Math.min(this.i + 1, this.events.length)}/${this.events.length}` : ''; }
@@ -74,6 +76,11 @@ export class CodeRunner {
       this._sleepLeft = ev.s;
       return;
     }
+    if (ev.type === 'grip') {
+      // drive the mounted gripper and wait for the fingers to finish
+      this._sleepLeft = Math.max(0.05, this.onGripper?.(ev.width) ?? 0.3);
+      return;
+    }
     // movej
     for (let i = 0; i < 6; i++) {
       this.motion.axes[i].vmax = Math.min(this._vmax0[i], ev.vcap ?? this._vmax0[i]);
@@ -105,7 +112,7 @@ export class CodeRunner {
     const ev = this.events[this.i];
     if (!ev) { this._finish(true, 'program finished'); return; }
 
-    if (ev.type === 'sleep') {
+    if (ev.type === 'sleep' || ev.type === 'grip') {
       this._sleepLeft -= dt;
       if (this._sleepLeft > 0) return;
     } else if (!this._reached(ev)) {

@@ -17,10 +17,13 @@ import { applyRealMesh } from '../src/robot/realMesh.js';
 import { Kinematics } from '../src/robot/kinematics.js';
 import { MotionController } from '../src/robot/motion.js';
 import { CollisionChecker } from '../src/robot/collision.js';
+import * as THREE from 'three';
 import { SimBridge } from '../src/code/bridge.js';
 import { PyRunner } from '../src/code/pyrunner.js';
 import { CodeRunner } from '../src/code/runner.js';
 import { EXAMPLES } from '../src/code/examples.js';
+import { AttachmentManager } from '../src/catalogue/manager.js';
+import { BrickSystem, BRICK } from '../src/world/bricks.js';
 
 let failed = 0;
 const check = (name, cond, detail = '') => {
@@ -50,6 +53,17 @@ const py = new PyRunner(bridge, { importPyodide: () => import('pyodide'), indexU
 console.log('loading pyodide (npm)…');
 await py.ensure();
 
+// full browser environment, headless: mounted 2FG7 + physical bricks.
+// The gripper changes the TCP, so it must be mounted before recording —
+// exactly what the Code lab does in the browser.
+const world = { scene: new THREE.Scene(), controls: { enabled: true }, renderer: null };
+world.scene.add(robot.root);
+const manager = new AttachmentManager(robot, motion, world);
+world.bricks = new BrickSystem(world, robot, () => manager.gripper);
+manager.add('gripper2f');
+manager.add('bricks'); // spawns brick #1 at the pick station (0.69, -0.32)
+runner.onGripper = (w) => manager.commandGripper(w);
+
 async function record(source) {
   motion.setPositions(robot.specs.home);
   motion.apply();
@@ -61,11 +75,12 @@ async function record(source) {
   return { res, events, out };
 }
 
-/** Plays events exactly like main.js does: motion + collision every tick. */
+/** Plays events exactly like main.js does: motion + gripper + bricks + collision. */
 function playback(events) {
   motion.speed = 1.0;
   let doneOk = null;
   let abortMsg = null;
+  let heldSeen = false;
   runner.play(events, {
     onLog: (t, c) => { if (c === 'err') abortMsg = t; },
     onDone: (ok) => { doneOk = ok; },
@@ -76,7 +91,7 @@ function playback(events) {
     motion.update(1 / 120);
     motion.apply();
     robot.root.updateMatrixWorld(true);
-    const hit = collider.check();
+    const hit = collider.check(manager.staticObstacles);
     if (hit) {
       if (motion.state === 'RUNNING') {
         motion.setPositions(safeQ);
@@ -87,10 +102,13 @@ function playback(events) {
     } else if (motion.state !== 'EMERGENCY_STOP') {
       safeQ = motion.getPositions();
     }
+    manager.update(1 / 120);
+    world.bricks.update(1 / 120);
+    heldSeen ||= !!world.bricks.held;
     runner.update(1 / 120);
   }
   if (motion.state !== 'RUNNING') motion.reset();
-  return { doneOk, steps, abortMsg };
+  return { doneOk, steps, abortMsg, heldSeen };
 }
 
 // ---- 1. the Robo Lab basic template (the script the students start with) --
@@ -116,6 +134,19 @@ for (const ex of EXAMPLES) {
   const pb = playback(events);
   check(`${ex.name}: plays to completion (collision live)`, pb.doneOk === true,
     pb.abortMsg ?? `${pb.steps} ticks, prints: ${out.filter((o) => !o.cls).length}`);
+
+  if (ex.code.includes('TwoFG7')) {
+    // physical grasp: the brick must actually be picked up, carried, and
+    // end up back at the pick station (the script's second cycle returns it)
+    check(`${ex.name}: gripper events recorded`, events.some((e) => e.type === 'grip'),
+      `${events.filter((e) => e.type === 'grip').length} gripper commands`);
+    check(`${ex.name}: brick was physically held`, pb.heldSeen === true);
+    const brick = world.bricks.bricks[0];
+    const err = brick ? Math.hypot(brick.position.x - 0.69, brick.position.z - 0.32) : Infinity;
+    check(`${ex.name}: brick returned to the pick station`,
+      !world.bricks.held && err < 0.02 && Math.abs(brick.position.y - BRICK.h / 2) < 0.002,
+      brick && `final pos (${brick.position.x.toFixed(3)}, ${brick.position.y.toFixed(3)}, ${brick.position.z.toFixed(3)}), xy err ${(err * 1000).toFixed(1)} mm`);
+  }
 }
 
 // ---- 3. speedL streaming (main_real.py pattern) ---------------------------

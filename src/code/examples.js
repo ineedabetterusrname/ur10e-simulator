@@ -47,52 +47,68 @@ if __name__ == "__main__":
 `;
 
 export const PICK_AND_PLACE = `# ============================================================
-# SAMPLE 2 - PICK AND PLACE
-# The classic cycle: hover over the pick point, descend straight
-# down, "grip", lift, carry to the place point, descend, release.
-# time.sleep() stands in for gripper I/O commands.
+# SAMPLE 2 - PICK AND PLACE (OnRobot 2FG7 gripper)
+# Pick a brick with the parallel gripper, carry it, place it,
+# then bring it back. In the simulator, add "Bricks (graspable)"
+# from the catalogue first - the first brick appears exactly at
+# the PICK station. The fingers stop on contact with the brick;
+# opening past its width releases it (it falls and settles).
 # ============================================================
 import rtde_control
 import rtde_receive
-import time
+
+try:
+    from onrobot import TwoFG7            # provided by the web simulator
+except ImportError:                        # real robot: OnRobot Compute Box
+    import xmlrpc.client
+    class TwoFG7:
+        """Minimal 2FG7 wrapper. Check the method names against your
+        OnRobot Compute Box XML-RPC documentation before first use."""
+        def __init__(self, ip, port=41414):
+            self._cb = xmlrpc.client.ServerProxy("http://%s:%d" % (ip, port))
+        def grip(self, width_mm, force=80, speed=100, wait=True):
+            self._cb.twofg_grip_external(0, float(width_mm), force, speed)
+        def open(self, width_mm=73.0):
+            self.grip(width_mm, force=20)
+        def get_width(self):
+            return self._cb.twofg_get_external_width(0)
 
 ROBOT_IP = "YOUR_ROBOT_IP"   # ignored by the simulator
 
-VEL_J, VEL_L = 1.0, 0.25     # joint speed rad/s, TCP speed m/s
-HOVER = 0.15                 # approach height above the object [m]
+BRICK_W = 60.0               # brick width [mm]; sim bricks are 120 x 60 x 60
+PICK    = (0.69, -0.32)      # base-frame X,Y of the pick station [m]
+PLACE   = (0.69,  0.08)      # base-frame X,Y of the place target [m]
+Z_TRAVEL = 0.25              # carry height above the base plane [m]
+Z_GRIP   = 0.032             # grip-point height when picking [m]
 
-def descend_and_return(rtde_c, rtde_r, depth, action):
-    """Move straight down by depth, do the action, come back up."""
-    pose = rtde_r.getActualTCPPose()
-    pose[2] -= depth
-    rtde_c.moveL(pose, speed=0.1)        # slow near the object
-    print(action)
-    time.sleep(0.5)                      # gripper open/close placeholder
-    pose[2] += depth
-    rtde_c.moveL(pose, speed=VEL_L)
+def goto(rtde_c, pose, x, y, z, v=0.25):
+    p = list(pose)
+    p[0], p[1], p[2] = x, y, z
+    rtde_c.moveL(p, speed=v)
 
 def main():
     rtde_c = rtde_control.RTDEControlInterface(ROBOT_IP)
     rtde_r = rtde_receive.RTDEReceiveInterface(ROBOT_IP)
+    gripper = TwoFG7(ROBOT_IP)
 
-    start = [0.0, -1.31, -1.75, -1.66, 1.57, 0.0]
-    rtde_c.moveJ(start, speed=VEL_J)
+    work = [0.0, -1.31, -1.75, -1.66, 1.57, 0.0]   # tool points straight down
+    rtde_c.moveJ(work, speed=1.0)
+    pose = rtde_r.getActualTCPPose()               # keep this orientation
+    gripper.open(73)
 
-    # pick and place TCP targets, relative to the start pose
-    base = rtde_r.getActualTCPPose()
-    pick = list(base);  pick[1] -= 0.15   # 15 cm to -Y
-    place = list(base); place[1] += 0.25  # 25 cm to +Y
+    for i, (src, dst) in enumerate([(PICK, PLACE), (PLACE, PICK)]):
+        print(f"cycle {i + 1}: pick {src} -> place {dst}")
+        goto(rtde_c, pose, src[0], src[1], Z_TRAVEL)
+        goto(rtde_c, pose, src[0], src[1], Z_GRIP, v=0.1)
+        gripper.grip(BRICK_W - 5)                  # fingers stop on the brick
+        goto(rtde_c, pose, src[0], src[1], Z_TRAVEL)
+        goto(rtde_c, pose, dst[0], dst[1], Z_TRAVEL)
+        goto(rtde_c, pose, dst[0], dst[1], Z_GRIP + 0.003, v=0.1)
+        gripper.open(73)                           # release - brick settles
+        goto(rtde_c, pose, dst[0], dst[1], Z_TRAVEL)
 
-    for i in range(2):                    # two full cycles
-        print(f"cycle {i + 1}: pick")
-        rtde_c.moveL(pick, speed=VEL_L)
-        descend_and_return(rtde_c, rtde_r, HOVER, "  gripper CLOSE")
-        print(f"cycle {i + 1}: place")
-        rtde_c.moveL(place, speed=VEL_L)
-        descend_and_return(rtde_c, rtde_r, HOVER, "  gripper OPEN")
-
-    rtde_c.moveJ(start, speed=VEL_J)
-    print("done")
+    rtde_c.moveJ(work, speed=1.0)
+    print("done - the brick is back at the pick station")
     rtde_c.disconnect()
 
 if __name__ == "__main__":

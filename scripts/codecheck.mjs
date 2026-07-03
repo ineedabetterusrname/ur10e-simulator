@@ -13,6 +13,7 @@ import { MotionController } from '../src/robot/motion.js';
 import { SimBridge } from '../src/code/bridge.js';
 import { CodeRunner } from '../src/code/runner.js';
 import { parseProgramFile } from '../src/code/ghimport.js';
+import { BrickSystem, BRICK } from '../src/world/bricks.js';
 
 let failed = 0;
 const check = (name, cond, detail = '') => {
@@ -159,6 +160,37 @@ let badErr = null;
 try { parseProgramFile('bad.json', '{"moves":[{"type":"pose","pose":[1,2]}]}', bridge); } catch (e) { badErr = e.message; }
 check('malformed file rejected', /6 numbers/.test(badErr ?? ''), badErr);
 check('bridge idle after imports', !bridge.recording);
+
+// ---------------------------------------------------------------- gripper
+bridge.begin();
+bridge.gripMove(55);
+const gev = bridge.events.at(-1);
+check('gripper command records', gev.type === 'grip' && Math.abs(gev.width - 0.055) < 1e-9,
+  gev.label);
+check('gripper width propagates', Math.abs(bridge.gripWidth() - 55) < 1e-9,
+  `${bridge.gripWidth()} mm`);
+bridge.end();
+
+// ---------------------------------------------------------------- bricks
+const w2 = { scene: new THREE.Scene(), controls: { enabled: true }, renderer: null };
+const bs = new BrickSystem(w2, robot, () => null);
+const a = bs.addBrick();
+const b = bs.addBrick();
+b.position.set(a.position.x + 0.02, 0.4, a.position.z); // drop onto brick A
+b.userData.brick.falling = true;
+for (let i = 0; i < 900 && b.userData.brick.falling; i++) bs.update(1 / 120);
+check('dropped brick stacks on the brick below',
+  Math.abs(b.position.y - (BRICK.h + BRICK.h / 2)) < 2e-3,
+  `rests at ${(b.position.y * 1000).toFixed(1)} mm (expected ${(BRICK.h * 1.5 * 1000).toFixed(0)})`);
+const c = bs.addBrick();
+c.position.set(-0.4, 0.3, -0.5); // clear of everything: must land on the floor
+c.userData.brick.falling = true;
+for (let i = 0; i < 900 && c.userData.brick.falling; i++) bs.update(1 / 120);
+check('dropped brick lands on the floor',
+  Math.abs(c.position.y - BRICK.h / 2) < 2e-3,
+  `rests at ${(c.position.y * 1000).toFixed(1)} mm`);
+bs.clear();
+check('brick clear() empties the scene', bs.count === 0);
 
 console.log(failed === 0 ? '\nAll code-lab checks passed.' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);

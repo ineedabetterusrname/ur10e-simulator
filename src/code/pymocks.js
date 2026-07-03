@@ -169,6 +169,54 @@ class DashboardClient:
     def disconnect(self): return None
 `;
 
+export const ONROBOT_PY = `
+"""Simulator stand-in for the OnRobot 2FG7 parallel gripper.
+
+On the real robot the 2FG7 is driven through the OnRobot Compute Box;
+scripts written for this module can fall back to a small XML-RPC wrapper
+there (see the lab samples). Widths are external grip widths in mm.
+"""
+import _urbridge as _b
+
+class TwoFG7:
+    MIN_WIDTH = 35.0
+    MAX_WIDTH = 73.0
+
+    def __init__(self, ip="", port=41414):
+        _b.note("TwoFG7: simulated OnRobot 2FG7 connected (ip '%s' ignored)" % ip)
+
+    def grip(self, width_mm, force=80, speed=100, wait=True):
+        """Close towards width_mm; fingers stop early on object contact."""
+        _b.grip_move(float(width_mm))
+        return True
+
+    def move(self, width_mm, force=80, speed=100, wait=True):
+        _b.grip_move(float(width_mm))
+        return True
+
+    def open(self, width_mm=73.0):
+        _b.grip_move(float(width_mm))
+        return True
+
+    def close(self, width_mm=35.0):
+        _b.grip_move(float(width_mm))
+        return True
+
+    def get_width(self):
+        return float(_b.grip_width())
+
+    def get_external_width(self):
+        return float(_b.grip_width())
+
+    def isConnected(self):
+        return True
+
+    def disconnect(self):
+        return True
+
+TwoFG = TwoFG7
+`;
+
 /** Run once after the mock modules exist: reroute blocking sleeps etc. */
 export const PRELUDE_PY = `
 import time as _time

@@ -31,40 +31,86 @@ export const PARTS = [
   // ---------------- end effectors ----------------
   {
     id: 'gripper2f',
-    name: '2-Finger Gripper',
+    name: 'OnRobot 2FG7 Gripper',
     category: 'endEffector',
-    desc: 'Parallel electric gripper, 46 mm stroke. Adds open/close controls.',
-    mass: 0.9,
+    desc: 'Parallel electric gripper, 35–73 mm external grip, contact-stop fingers. The lab\'s end effector.',
+    mass: 1.1, // 2FG7 datasheet weight
     build() {
+      // Proportions follow the 2FG7 datasheet (compact rectangular housing,
+      // ~38 mm stroke); OnRobot doesn't ship open CAD, so this is a
+      // dimensioned model, not their mesh. Fingers travel along local X.
       const group = new THREE.Group();
-      const bodyM = std(0x2b2e33);
-      const accent = std(0x1794d1);
-      group.add(at(cylZ(0.038, 0.02, accent), 0, 0, 0.01));
-      group.add(at(box(0.09, 0.05, 0.07, bodyM), 0, 0, 0.055));
-      const fingerM = std(0x8f959c, { metalness: 0.7, roughness: 0.3 });
-      const f1 = at(box(0.014, 0.03, 0.075, fingerM), 0.03, 0, 0.125);
-      const f2 = at(box(0.014, 0.03, 0.075, fingerM), -0.03, 0, 0.125);
-      group.add(f1, f2);
-      const state = { open: 1, targetOpen: 1 };
+      const shell = std(0xe9eaec, { metalness: 0.15, roughness: 0.45 }); // OnRobot light grey
+      const dark = std(0x2e3238, { roughness: 0.6 });
+      const blue = std(0x1f6fb8); // OnRobot blue
+      const steel = std(0x9aa0a8, { metalness: 0.75, roughness: 0.3 });
+      const pad = std(0x191b1e, { roughness: 0.95 });
+
+      group.add(at(cylZ(0.0375, 0.012, dark), 0, 0, 0.006));            // coupling
+      group.add(at(box(0.096, 0.076, 0.014, blue), 0, 0, 0.019));       // blue band
+      group.add(at(box(0.096, 0.076, 0.06, shell), 0, 0, 0.056));       // housing
+      group.add(at(box(0.098, 0.06, 0.02, shell), 0, 0, 0.094));        // lower cap
+      group.add(at(box(0.1, 0.02, 0.012, dark), 0, 0, 0.106));          // finger rail
+      group.add(at(cylZ(0.008, 0.002, blue), 0.036, 0.039, 0.056));     // logo dot
+
+      // fingers: steel bar + rubber pad; pad inner face defines the width
+      const makeFinger = (side) => {
+        const f = new THREE.Group();
+        f.add(at(box(0.012, 0.03, 0.052, steel), side * 0.014, 0, 0.026));
+        f.add(at(box(0.008, 0.028, 0.04, pad), side * 0.004, 0, 0.032));
+        f.position.z = 0.103;
+        group.add(f);
+        return f;
+      };
+      const fR = makeFinger(+1);
+      const fL = makeFinger(-1);
+
+      // ---- gripper state: widths in metres, 2FG7 external range ----------
+      const MIN_W = 0.035;
+      const MAX_W = 0.073;
+      const SPEED = 0.15; // width rate [m/s] (2FG7 speed is configurable 10–450 mm/s)
+      const state = { w: MAX_W, targetW: MAX_W, contactW: 0 };
+
+      const gripperApi = {
+        isParallel: true,
+        minW: MIN_W,
+        maxW: MAX_W,
+        get width() { return state.w; },
+        get target() { return state.targetW; }, // raw command (contact clamp is separate)
+        /** Commands a width [m]; returns the motion duration in seconds. */
+        command(w) {
+          state.targetW = Math.min(MAX_W, Math.max(MIN_W, w));
+          if (state.targetW > state.w) state.contactW = 0; // opening frees contact
+          return Math.abs(state.targetW - state.w) / SPEED + 0.1;
+        },
+        /** BrickSystem: fingers must stop at this width (object contact). */
+        setContact(w) { state.contactW = w; },
+        /** World-space point between the fingertips. */
+        gripCenter(out) { return out.set(0, 0, 0.145).applyMatrix4(group.matrixWorld); },
+      };
+
       return {
         group,
-        tcpZ: 0.165,
-        capsule: { len: 0.17, r: 0.055 },
+        tcpZ: 0.145, // TCP at the grip point between the fingertips
+        capsule: { len: 0.16, r: 0.056 },
         state,
+        gripperApi,
         controls: [
-          { type: 'slider', label: 'Grip opening', min: 0, max: 100, step: 1,
-            get: () => Math.round(state.targetOpen * 100),
-            set: (v) => { state.targetOpen = v / 100; },
-            fmt: (v) => `${v}%` },
-          { type: 'button', label: 'Open', onClick: () => { state.targetOpen = 1; } },
-          { type: 'button', label: 'Close', onClick: () => { state.targetOpen = 0; } },
-          { type: 'readout', label: 'Opening', get: () => `${(4 + state.open * 46).toFixed(0)} mm` },
+          { type: 'slider', label: 'Width', min: 35, max: 73, step: 1,
+            get: () => Math.round(state.targetW * 1000),
+            set: (v) => gripperApi.command(v / 1000),
+            fmt: (v) => `${v} mm` },
+          { type: 'button', label: 'Open (73 mm)', onClick: () => gripperApi.command(MAX_W) },
+          { type: 'button', label: 'Close', onClick: () => gripperApi.command(MIN_W) },
+          { type: 'readout', label: 'Actual width', get: () => `${(state.w * 1000).toFixed(0)} mm` },
         ],
         update(dt) {
-          state.open += Math.max(-dt * 1.6, Math.min(dt * 1.6, state.targetOpen - state.open));
-          const x = 0.007 + state.open * 0.023;
-          f1.position.x = x;
-          f2.position.x = -x;
+          // fingers move at gripper speed and stop on object contact
+          const goal = Math.max(state.targetW, state.contactW || 0);
+          const dw = Math.max(-SPEED * dt, Math.min(SPEED * dt, goal - state.w));
+          state.w += dw;
+          fR.position.x = state.w / 2;
+          fL.position.x = -state.w / 2;
         },
       };
     },
@@ -242,6 +288,39 @@ export const PARTS = [
           state.mm = d;
         },
       };
+    },
+  },
+  // ---------------- world objects ----------------
+  {
+    id: 'bricks',
+    name: 'Bricks (graspable)',
+    category: 'world',
+    desc: 'White 120×60×60 mm bricks on the floor. Drag to move, rotate via the Tool tab, pick them with the 2FG7.',
+    mass: 0,
+    build() {
+      const inst = {
+        group: new THREE.Group(), // world part: nothing mounts on the robot
+        sys: null,
+        attachWorld(world) {
+          this.sys = world.bricks;
+          if (this.sys && this.sys.count === 0) this.sys.addBrick();
+        },
+        detachWorld() {
+          this.sys?.clear();
+          this.sys = null;
+        },
+        update() {},
+      };
+      inst.controls = [
+        { type: 'button', label: 'Add brick', onClick: () => inst.sys?.addBrick() },
+        { type: 'button', label: 'Remove all', onClick: () => inst.sys?.clear() },
+        { type: 'slider', label: 'Rotate brick', min: 0, max: 360, step: 5,
+          get: () => inst.sys?.getYawDeg() ?? 0,
+          set: (v) => inst.sys?.setYawDeg(v),
+          fmt: (v) => `${v}°` },
+        { type: 'readout', label: 'Bricks', get: () => `${inst.sys?.count ?? 0} (drag to move · slider rotates the last one touched)` },
+      ];
+      return inst;
     },
   },
   // ---------------- base ----------------

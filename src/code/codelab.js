@@ -12,11 +12,13 @@ import { EXAMPLES } from './examples.js';
  * physics and collision protection.
  */
 export class CodeLab {
-  constructor(pane, { motion, kin, robot }) {
+  constructor(pane, { motion, kin, robot, manager }) {
     this.motion = motion;
+    this.manager = manager;
     this.bridge = new SimBridge(robot, kin);
     this.py = new PyRunner(this.bridge);
     this.runner = new CodeRunner(motion);
+    this.runner.onGripper = (w) => manager?.commandGripper(w) ?? 0;
     this.busy = false;
     this.pending = null; // { name, events } from an uploaded toolpath
 
@@ -138,6 +140,12 @@ export class CodeLab {
     try {
       if (!this.py.ready) {
         await this.py.ensure((s) => { this._setStatus(s); this.log(s, 'sys'); });
+      }
+      // gripper scripts need the 2FG7 mounted BEFORE recording so the TCP
+      // (and every pose the script reads) already includes the tool length
+      if (this.manager && !this.manager.gripper && /TwoFG7|from\s+onrobot|import\s+onrobot/.test(this.editor.value)) {
+        this.manager.add('gripper2f');
+        this.log('mounted the OnRobot 2FG7 gripper automatically', 'sys');
       }
       this._setStatus('running script…');
       this.bridge.begin();

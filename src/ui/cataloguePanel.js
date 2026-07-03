@@ -5,6 +5,7 @@ const CATEGORY_LABELS = {
   endEffector: 'End Effectors',
   inline: 'Inline Sensors',
   addon: 'Wrist Add-ons',
+  world: 'World Objects',
   base: 'Base Options',
 };
 
