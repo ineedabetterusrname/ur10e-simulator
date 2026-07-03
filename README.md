@@ -21,9 +21,21 @@ Other scripts:
 npm run build      # production bundle -> dist/
 npm run preview    # serve the production bundle
 npm run smoke      # headless kinematics + collision test suite (no browser)
+npm run meshcheck  # headless check that the official mesh registers on the DH chain
 ```
 
 ## What's simulated
+
+### Real UR10e mesh
+The arm renders with the **official Universal Robots graphical-documentation
+mesh** (417k triangles, per-link, from the UR *cojt* package in `UR10e_cojt/`,
+used under UR's [terms for graphical documentation](UR10e_cojt/universal-robots.com_legal_terms-and-conditions_terms_and_conditions_for_use_of_graphical_documentation.txt)).
+The GLB is meshopt-compressed to 2.1 MB (`public/ur10e.glb`); a lightweight
+primitive skin renders instantly and is swapped out once the real mesh loads.
+Registration onto the DH joint chain is computed, not hand-tuned — the robot is
+posed at the GLB's authoring configuration and each link node is re-parented
+with `Object3D.attach()`; `npm run meshcheck` proves every link lands within
+0.05 mm.
 
 ### Kinematics — exact, not approximate
 The joint chain is built from the **official UR10e DH parameters**
@@ -39,8 +51,11 @@ analytic DH product and the published zero-pose flange position (−1184.25, −
 - Global **speed override** slider (1–100%), like the real pendant.
 
 ### Safety
-- **Self-collision detection** via capsule sweeps over all non-adjacent link pairs,
-  plus floor and (when mounted) track-rail collision.
+- **Exact mesh collision**: self-collision, floor and track-rail checks run true
+  distance queries (three-mesh-bvh) against a ±1.5 mm simplified copy of the real
+  link meshes, with a 5 mm protective clearance — the stop fires exactly when the
+  visible surfaces come together. Capsule approximations are used only for the
+  instant before the mesh finishes loading.
 - A predicted collision reverts to the last safe pose and latches a
   **PROTECTIVE STOP** — press *Reset* to resume, exactly like a real UR.
 - Physical-style **emergency stop** button.
@@ -77,10 +92,11 @@ src/
   main.js               bootstrap + fixed-order sim loop (jog→motion→FK→collision→UI)
   scene.js              renderer, lights, ground, orbit camera, PiP viewport
   robot/
-    ur10e.js            DH-exact joint hierarchy, meshes, collision capsules, specs
+    ur10e.js            DH-exact joint hierarchy, placeholder skin, collision capsules
+    realMesh.js         loads the official UR mesh + builds per-link collision BVHs
     motion.js           per-axis trapezoidal motion, jog/targets, safety states, program
     kinematics.js       scene-graph-derived FK, numeric Jacobian, DLS IK
-    collision.js        capsule-capsule / capsule-floor / static-obstacle checks
+    collision.js        exact mesh-distance checks (BVH), capsule fallback pre-load
   catalogue/
     parts.js            part definitions (meshes, controls, behaviours)
     manager.js          smart mounting, TCP/capsule/payload recompute, control routing

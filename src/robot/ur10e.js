@@ -134,7 +134,9 @@ export function buildUR10e() {
 
   // ---- collision capsules ---------------------------------------------
   // Endpoints are kept clear of the joints they hinge on so straight poses
-  // do not self-trigger, while genuine folds still overlap.
+  // do not self-trigger, while genuine folds still overlap. Only used until
+  // the official mesh loads — realMesh.js then installs exact per-link BVH
+  // colliders and the checker switches to true mesh-distance tests.
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const capsules = {
     base: { node: root, p1: V(0, 0, 0.02), p2: V(0, 0, 0.2), r: 0.115 },
@@ -146,6 +148,11 @@ export function buildUR10e() {
     tool: { node: tool0, p1: V(0, 0, -0.005), p2: V(0, 0, 0.03), r: 0.05 },
   };
 
+  // Everything added above is a placeholder "primitive skin": it renders
+  // instantly and is swapped out when the official UR mesh loads (realMesh.js).
+  const cosmetics = [];
+  root.traverse((o) => { if (o.isMesh) cosmetics.push(o); });
+
   const robot = {
     specs: SPECS,
     root,
@@ -154,6 +161,14 @@ export function buildUR10e() {
     tool0,
     toolPoint,
     capsules,
+    removeCosmetics() {
+      for (const m of cosmetics) {
+        m.parent?.remove(m);
+        m.geometry.dispose();
+        m.material.dispose();
+      }
+      cosmetics.length = 0;
+    },
     setAngles(q) {
       for (let i = 0; i < 6; i++) joints[i].rotation.z = q[i];
     },

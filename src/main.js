@@ -2,6 +2,7 @@ import './style.css';
 import * as THREE from 'three';
 import { createScene } from './scene.js';
 import { buildUR10e } from './robot/ur10e.js';
+import { applyRealMesh } from './robot/realMesh.js';
 import { MotionController } from './robot/motion.js';
 import { Kinematics } from './robot/kinematics.js';
 import { CollisionChecker } from './robot/collision.js';
@@ -13,6 +14,11 @@ import { StatusBar } from './ui/statusbar.js';
 const world = createScene(document.getElementById('app'));
 const robot = buildUR10e();
 world.scene.add(robot.root);
+
+// Swap the primitive placeholder skin for the official UR10e mesh once it
+// loads; on failure (e.g. offline) the primitives simply stay.
+applyRealMesh(robot, `${import.meta.env.BASE_URL}ur10e.glb`)
+  .catch((err) => console.warn('Real UR10e mesh unavailable, keeping primitive skin.', err));
 
 const motion = new MotionController(robot);
 const kin = new Kinematics(robot);
