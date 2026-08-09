@@ -161,6 +161,14 @@ export function buildUR10e() {
     tool0,
     toolPoint,
     capsules,
+    /**
+     * Hidden while the official mesh loads, so the placeholder never flashes
+     * on screen; shown again only if that load fails. A no-op once
+     * removeCosmetics() has run, which is the success path.
+     */
+    setCosmeticsVisible(v) {
+      for (const m of cosmetics) m.visible = v;
+    },
     removeCosmetics() {
       for (const m of cosmetics) {
         m.parent?.remove(m);

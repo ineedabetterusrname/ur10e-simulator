@@ -19,8 +19,13 @@ world.scene.add(robot.root);
 
 // Swap the primitive placeholder skin for the official UR10e mesh once it
 // loads; on failure (e.g. offline) the primitives simply stay.
+// Hidden meanwhile: the render loop starts immediately but the swap takes a
+// GLB fetch plus seven main-thread BVH builds, and without this the old
+// placeholder robot was visibly on screen for that whole window.
+robot.setCosmeticsVisible(false);
 applyRealMesh(robot, `${import.meta.env.BASE_URL}ur10e.glb`)
-  .catch((err) => console.warn('Real UR10e mesh unavailable, keeping primitive skin.', err));
+  .catch((err) => console.warn('Real UR10e mesh unavailable, keeping primitive skin.', err))
+  .finally(() => robot.setCosmeticsVisible(true)); // no-op on success: already disposed
 
 const motion = new MotionController(robot);
 const kin = new Kinematics(robot);
