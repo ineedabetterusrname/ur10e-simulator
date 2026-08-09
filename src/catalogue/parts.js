@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { applyGripperMesh } from './gripperMesh.js';
 
 const std = (color, opts = {}) =>
   new THREE.MeshStandardMaterial({ color, metalness: 0.4, roughness: 0.5, ...opts });
@@ -34,11 +35,11 @@ export const PARTS = [
     name: 'OnRobot 2FG7 Gripper',
     category: 'endEffector',
     desc: 'Parallel electric gripper, 35–73 mm external grip, contact-stop fingers. The lab\'s end effector.',
-    mass: 1.1, // 2FG7 datasheet weight
+    mass: 1.14, // 2FG7 datasheet weight
     build() {
-      // Proportions follow the 2FG7 datasheet (compact rectangular housing,
-      // ~38 mm stroke); OnRobot doesn't ship open CAD, so this is a
-      // dimensioned model, not their mesh. Fingers travel along local X.
+      // Placeholder skin, swapped for the official OnRobot mesh below. Its
+      // proportions follow the 2FG7 datasheet (compact rectangular housing,
+      // ~38 mm stroke). Fingers travel along local X.
       const group = new THREE.Group();
       const shell = std(0xe9eaec, { metalness: 0.15, roughness: 0.45 }); // OnRobot light grey
       const dark = std(0x2e3238, { roughness: 0.6 });
@@ -65,11 +66,40 @@ export const PARTS = [
       const fR = makeFinger(+1);
       const fL = makeFinger(-1);
 
+      // Finger driver. The placeholder's fingers sit symmetrically about zero
+      // so half the width places them; the real mesh was exported at a fixed
+      // 51.8 mm opening and installs its own driver when it loads.
+      let setWidth = (w) => { fR.position.x = w / 2; fL.position.x = -w / 2; };
+
       // ---- gripper state: widths in metres, 2FG7 external range ----------
+      // TCP sits mid-pad on the real fingertips, which span z 109..147 mm now
+      // that the coupling is drawn inside the flange rather than below it.
+      const TCP_Z = 0.1358;
       const MIN_W = 0.035;
       const MAX_W = 0.073;
-      const SPEED = 0.15; // width rate [m/s] (2FG7 speed is configurable 10–450 mm/s)
+      const SPEED = 0.15; // width rate [m/s] (2FG7 speed is configurable 16–450 mm/s)
       const state = { w: MAX_W, targetW: MAX_W, contactW: 0 };
+
+      // Official OnRobot mesh. The placeholder is hidden rather than shown
+      // while it loads, so it never flashes; on failure (e.g. offline) it
+      // comes back and the gripper still works.
+      const cosmetics = [];
+      group.traverse((o) => { if (o.isMesh) { o.visible = false; cosmetics.push(o); } });
+      applyGripperMesh(group, `${import.meta.env.BASE_URL}gripper-2fg7.glb`)
+        .then((mesh) => {
+          setWidth = mesh.setWidth;
+          setWidth(state.w);
+          for (const m of cosmetics) {
+            m.parent?.remove(m);
+            m.geometry.dispose();
+            m.material.dispose();
+          }
+          cosmetics.length = 0;
+        })
+        .catch((err) => {
+          console.warn('OnRobot 2FG7 mesh unavailable, keeping primitive skin.', err);
+          for (const m of cosmetics) m.visible = true;
+        });
 
       const gripperApi = {
         isParallel: true,
@@ -86,12 +116,12 @@ export const PARTS = [
         /** BrickSystem: fingers must stop at this width (object contact). */
         setContact(w) { state.contactW = w; },
         /** World-space point between the fingertips. */
-        gripCenter(out) { return out.set(0, 0, 0.145).applyMatrix4(group.matrixWorld); },
+        gripCenter(out) { return out.set(0, 0, TCP_Z).applyMatrix4(group.matrixWorld); },
       };
 
       return {
         group,
-        tcpZ: 0.145, // TCP at the grip point between the fingertips
+        tcpZ: TCP_Z, // TCP at the grip point between the fingertips
         capsule: { len: 0.16, r: 0.056 },
         state,
         gripperApi,
@@ -109,8 +139,7 @@ export const PARTS = [
           const goal = Math.max(state.targetW, state.contactW || 0);
           const dw = Math.max(-SPEED * dt, Math.min(SPEED * dt, goal - state.w));
           state.w += dw;
-          fR.position.x = state.w / 2;
-          fL.position.x = -state.w / 2;
+          setWidth(state.w);
         },
       };
     },
