@@ -154,9 +154,13 @@ export class CollisionChecker {
       if (this._meshBelowFloor(col)) return `floor collision: ${LINK_LABEL[name]}`;
     }
 
-    // mounted tool (capsule, sized by the attachment manager) vs link meshes
+    // mounted tool (capsule, sized by the attachment manager) vs link meshes & floor
     const tool = caps.tool;
     this._world(tool, this._c, this._d);
+    if (tool.p2.z > 0.04) {
+      const toolLowY = Math.min(this._c.y, this._d.y);
+      if (toolLowY < this.groundY + 0.002) return 'floor collision: tool';
+    }
     for (const name of TOOL_VS_LINKS) {
       if (this._segmentNearMesh(cols[name], this._c, this._d, tool.r)) {
         return `self-collision: tool / ${LINK_LABEL[name]}`;

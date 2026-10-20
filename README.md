@@ -65,16 +65,16 @@ analytic DH product and the published zero-pose flange position (−1184.25, −
 ### Teach pendant (right panel)
 | Tab | Contents |
 |---|---|
-| **Move** | Joint jog (hold −/+ or drag sliders) and Cartesian **TCP jog** in the base frame (X/Y/Z/RX/RY/RZ) driven by damped-least-squares IK; live TCP readout; Home pose |
-| **Tool** | *Adaptive* — controls contributed by whatever is currently mounted |
+| **Move** | Joint jog (hold −/+ or drag sliders) and Cartesian **TCP jog** in the **Base** or **Tool (TCP)** frame (X/Y/Z/RX/RY/RZ) driven by damped-least-squares IK; live TCP readout; **📋 Copy moveJ / Copy moveL** Python snippet buttons; Home pose |
+| **Tool** | *Adaptive* — controls contributed by whatever is currently mounted (including base-frame `(X, Y, Z)` readout for graspable bricks) |
 | **Program** | Save waypoints, play once or loop, jump to any waypoint |
-| **Code** | *Code lab* — run your own robot code on the simulator (below) |
+| **Code** | *Code lab* — run your own Python or Grasshopper/Robots code on the simulator (below) |
 | **Status** | Joint positions/velocities, payload, machine state |
 
 ### Code lab — test your robot code in the browser
 The **Code** tab runs student programs against the simulated UR10e, with the
-same motion limits and collision protection as the rest of the sim — a
-pre-flight check before booking time on the real robot:
+same motion limits, 3D toolpath trajectory preview, and collision protection
+as the rest of the sim — a pre-flight check before booking time on the real robot:
 
 - **Python (ur_rtde)** — paste or upload the *same script* you would run on
   the real robot: `rtde_control` / `rtde_receive` / `dashboard_client` are
@@ -85,13 +85,22 @@ pre-flight check before booking time on the real robot:
   state reads return the kinematically propagated pose. `print()` and
   tracebacks stream to the built-in console, and common beginner mistakes
   get targeted hints (degrees vs radians, millimetres vs metres,
-  desktop-only imports like `cv2`, runaway loops). An **Examples…**
-  dropdown ships three ready-to-run sample programs (also in the Robo Lab
-  repo), and a **⛶ Wide** toggle grows the editor for real editing.
-- **Grasshopper / toolpaths** — GH definitions can't execute in a browser,
-  but the Code lab plays exported target programs (`.json` with joint or
-  pose moves, or a plain `.csv` of joint rows). A no-plugins GhPython export
-  snippet is provided in [docs/grasshopper-export.md](docs/grasshopper-export.md).
+  desktop-only imports like `cv2`, runaway loops). Editor contents auto-save
+  in the browser (`localStorage`) and can be downloaded via **⬇ .py**.
+- **Grasshopper & `Robots` plugin (1-click sync node & `.script` import)** —
+  click **`⬇ GH Node`** in the Code tab to download `UR10e_Sim_Sync.ghx` and
+  drag it directly onto your Grasshopper canvas. Wire either the **`Code`**
+  output from the **Robots** plugin's `Create Program` component or a list of
+  Rhino/Grasshopper **`Plane`s** (`P`) into the node, then click **`🔄 Live Sync`**
+  in the simulator to watch `~/Desktop/ur10e_sim_live.script` (or `.json`) and
+  automatically update and play whenever you move a slider in Grasshopper.
+  You can also directly upload or paste `.script` (URScript), `.ghx` (with
+  internalised data), `.json`, or `.csv` files. Full instructions in
+  [docs/grasshopper-export.md](docs/grasshopper-export.md).
+- **3D Toolpath Preview & Viewport Guides** — recorded and imported programs
+  display their planned 3D TCP trajectory and waypoints in cyan alongside a
+  live gold TCP trail, labeled `+X / +Y / +Z` base-frame axes, `1.3 m` reach
+  rings, and quick camera presets (`Iso`, `Top`, `Front`, `Side`).
 - Programs are validated at record time (joint limits, reachability) and
   played back with commanded speeds; a self-collision or floor hit
   protective-stops the run and reports **which command** tripped it.
