@@ -501,3 +501,44 @@ button.toggle.on { background: rgba(47, 191, 113, 0.18); border-color: var(--ok)
   letter-spacing: 0.1em;
   color: var(--accent);
 }
+
+/* ---------------- section headers & viewport bar ---------------- */
+.sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 8px;
+}
+.sec-head h3 { margin: 0; }
+
+.viewport-bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  backdrop-filter: blur(12px);
+}
+body.embed .viewport-bar { display: none; }
+.vp-btn {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.vp-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.vp-btn.active { color: var(--accent); background: var(--accent-soft); border-color: rgba(23, 148, 209, 0.35); }
+.vp-sep { width: 1px; height: 14px; background: var(--panel-border); margin: 0 2px; }
+

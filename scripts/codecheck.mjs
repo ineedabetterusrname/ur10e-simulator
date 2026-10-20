@@ -189,8 +189,38 @@ for (let i = 0; i < 900 && c.userData.brick.falling; i++) bs.update(1 / 120);
 check('dropped brick lands on the floor',
   Math.abs(c.position.y - BRICK.h / 2) < 2e-3,
   `rests at ${(c.position.y * 1000).toFixed(1)} mm`);
+
+// brick base-frame coordinates readout
+const coords = bs.getSelectedBaseCoords();
+check('brick base-frame coords match world-to-base transform',
+  coords && Math.abs(coords[0] - (-0.4)) < 1e-4 && Math.abs(coords[1] - 0.5) < 1e-4,
+  `got (${coords?.map((v) => v.toFixed(3)).join(', ')})`);
 bs.clear();
 check('brick clear() empties the scene', bs.count === 0);
 
+// ---------------------------------------------------------------- URScript (Robots plugin) & GHX
+robot.setAngles(HOME);
+const urScript = `
+def Program():
+  set_tcp(p[0.0, 0.0, 0.1358, 0.0, 0.0, 0.0])
+  movej([0.0, -1.31, -1.75, -1.66, 1.57, 0.0], a=1.4, v=1.05)
+  movel(p[${wp2pose.map((v) => v.toFixed(4)).join(', ')}], a=1.2, v=0.25)
+  twofg_grip_external(0, 60.0, 80, 100)
+  sleep(0.5)
+end
+`;
+const scriptEvents = parseProgramFile('program.script', urScript, bridge);
+check('URScript (.script from Robots plugin) parses',
+  scriptEvents.length >= 4 && scriptEvents.some((e) => e.type === 'grip') && scriptEvents.some((e) => e.type === 'sleep'),
+  `${scriptEvents.length} events`);
+
+const ghxSample = `<?xml version="1.0" encoding="utf-8"?>
+<Archive name="Root">
+  <item name="UserText" type_name="gh_string">movej([0.0, -1.31, -1.75, -1.66, 1.57, 0.0], a=1.4, v=1.05)</item>
+</Archive>`;
+const ghxEvents = parseProgramFile('sample.ghx', ghxSample, bridge);
+check('GHX archive with internalised URScript parses', ghxEvents.length === 1);
+
 console.log(failed === 0 ? '\nAll code-lab checks passed.' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);
+

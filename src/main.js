@@ -12,6 +12,8 @@ import { CodeLab } from './code/codelab.js';
 import { BrickSystem } from './world/bricks.js';
 import { CataloguePanel } from './ui/cataloguePanel.js';
 import { StatusBar } from './ui/statusbar.js';
+import { buildBaseFrameGuide, TrajectoryVisualizer } from './ui/trajectory.js';
+import { h } from './ui/dom.js';
 
 const world = createScene(document.getElementById('app'));
 const robot = buildUR10e();
@@ -33,15 +35,53 @@ const collider = new CollisionChecker(robot);
 world.bricks = new BrickSystem(world, robot, () => manager.gripper);
 const manager = new AttachmentManager(robot, motion, world);
 
+// Base frame guide (+X, +Y, +Z in UR10e base frame + 1.3m workspace reach ring)
+const baseGuide = buildBaseFrameGuide(robot.root);
+const trajectory = new TrajectoryVisualizer(robot, kin);
+
 const pendantEl = document.getElementById('pendant');
 const pendant = new Pendant(pendantEl, { motion, kin, robot, manager });
-const codeLab = new CodeLab(pendant.panes.code, { motion, kin, robot, manager });
+const codeLab = new CodeLab(pendant.panes.code, { motion, kin, robot, manager, trajectory });
 new CataloguePanel(document.getElementById('catalogue'), manager);
 const status = new StatusBar(document.getElementById('statusbar'), { motion, kin, manager });
 
 // TCP marker triad
 const triad = new THREE.AxesHelper(0.09);
 robot.toolPoint.add(triad);
+
+// Top-center viewport bar: camera presets (Iso / Top / Front / Side) + guide toggles
+const setCam = (pos, target = [0, 0.55, 0]) => {
+  world.camera.position.set(...pos);
+  world.controls.target.set(...target);
+  world.controls.update();
+};
+const axesToggleBtn = h('button.vp-btn.active', {
+  text: 'Axes',
+  title: 'Toggle Base Frame (+X/+Y/+Z) & 1.3m reach rings',
+  onclick: () => {
+    baseGuide.visible = !baseGuide.visible;
+    triad.visible = baseGuide.visible;
+    axesToggleBtn.classList.toggle('active', baseGuide.visible);
+  },
+});
+const pathToggleBtn = h('button.vp-btn.active', {
+  text: 'Path',
+  title: 'Toggle 3D TCP toolpath & live trail',
+  onclick: () => {
+    trajectory.setVisible(!trajectory.visible);
+    pathToggleBtn.classList.toggle('active', trajectory.visible);
+  },
+});
+const vpBar = h('div.viewport-bar', {},
+  h('button.vp-btn', { text: 'Iso', title: 'Isometric 3D view', onclick: () => setCam([2.4, 1.9, 2.6]) }),
+  h('button.vp-btn', { text: 'Top', title: 'Top-down XY base-plane view', onclick: () => setCam([0, 3.8, 0.01], [0, 0, 0]) }),
+  h('button.vp-btn', { text: 'Front', title: 'Front view (+X right)', onclick: () => setCam([0, 0.8, 3.2]) }),
+  h('button.vp-btn', { text: 'Side', title: 'Side view (+X towards camera)', onclick: () => setCam([3.2, 0.8, 0]) }),
+  h('span.vp-sep'),
+  axesToggleBtn,
+  pathToggleBtn,
+);
+document.body.appendChild(vpBar);
 
 // Compact embed mode (?embed=1): used when the simulator is shown inside a
 // small iframe/preview pane. Collapse both side panels, hide the status bar,
@@ -87,6 +127,7 @@ function tick() {
 
   manager.update(dt);
   world.bricks.update(dt);
+  trajectory.update();
   pendant.updateReadouts(dt);
   status.update(dt);
   world.controls.update();

@@ -127,7 +127,19 @@ export class Pendant {
       this._jointRows.push({ ax, val, slider, isDeg });
     });
 
-    pane.append(h('h3', { text: 'TCP jog — base frame' }));
+    this.jogFrame = this.jogFrame ?? 'base'; // 'base' | 'tool'
+    const frameBtn = h('button.btn.small', {
+      text: this.jogFrame === 'base' ? 'Frame: Base' : 'Frame: Tool (TCP)',
+      title: 'Switch Cartesian jog between Robot Base frame and Tool (TCP) frame',
+      onclick: () => {
+        this.jogFrame = this.jogFrame === 'base' ? 'tool' : 'base';
+        frameBtn.textContent = this.jogFrame === 'base' ? 'Frame: Base' : 'Frame: Tool (TCP)';
+      },
+    });
+    pane.append(h('div.sec-head', {},
+      h('h3', { text: 'TCP jog' }),
+      frameBtn,
+    ));
     const grid = h('div.cart-grid');
     const axes = [
       ['X', 0], ['Y', 1], ['Z', 2],
@@ -146,10 +158,44 @@ export class Pendant {
 
     this.tcpReadout = h('div.tcp-readout');
     pane.append(this.tcpReadout);
+
+    const copyMoveJBtn = h('button.btn', {
+      text: '📋 Copy moveJ',
+      title: 'Copy current joint angles as a Python rtde_c.moveJ(...) line',
+      onclick: () => this._copySnippet('moveJ', copyMoveJBtn),
+    });
+    const copyMoveLBtn = h('button.btn', {
+      text: '📋 Copy moveL',
+      title: 'Copy current TCP pose [x,y,z,rx,ry,rz] as a Python rtde_c.moveL(...) line',
+      onclick: () => this._copySnippet('moveL', copyMoveLBtn),
+    });
     pane.append(h('div.row-btns', {},
       h('button.btn', { text: 'Home pose', onclick: () => this.motion.goHome() }),
+      copyMoveJBtn,
+      copyMoveLBtn,
     ));
     this._updateStatePill();
+  }
+
+  _copySnippet(kind, btnEl) {
+    let snippet = '';
+    if (kind === 'moveJ') {
+      const q = this.motion.getPositions().slice(0, 6).map((v) => v.toFixed(4));
+      snippet = `rtde_c.moveJ([${q.join(', ')}], speed=1.0)`;
+    } else {
+      const { pos, quat } = this.kin.tcpInBase();
+      const w = quat.w < 0 ? -quat.w : quat.w;
+      const s = quat.w < 0 ? -1 : 1;
+      const ang = 2 * Math.acos(Math.min(1, w));
+      const den = Math.sqrt(Math.max(0, 1 - w * w));
+      const rv = den < 1e-9 ? [0, 0, 0] : [(quat.x * ang / den) * s, (quat.y * ang / den) * s, (quat.z * ang / den) * s];
+      const pose = [pos.x, pos.y, pos.z, ...rv].map((v) => v.toFixed(4));
+      snippet = `rtde_c.moveL([${pose.join(', ')}], speed=0.25)`;
+    }
+    navigator.clipboard?.writeText(snippet);
+    const orig = btnEl.textContent;
+    btnEl.textContent = '✓ Copied!';
+    setTimeout(() => { btnEl.textContent = orig; }, 1200);
   }
 
   // ------------------------------------------------------------- tool tab
@@ -258,8 +304,15 @@ export class Pendant {
   applyCartesianJog(dt) {
     if (!this.cartDir || this.motion.state !== 'RUNNING') return;
     const ov = this.motion.speed;
-    const dx = this.cartDir.map((d, i) =>
+    let dx = this.cartDir.map((d, i) =>
       d * (i < 3 ? this.linSpeed : this.angSpeed) * ov * dt);
+    if (this.jogFrame === 'tool') {
+      const { quat } = this.kin.tcpInBase();
+      const v = this.kin._pos.set(dx[0], dx[1], dx[2]).applyQuaternion(quat);
+      const w = this.kin._scale.set(dx[3], dx[4], dx[5]).applyQuaternion(quat);
+      dx = [v.x, v.y, v.z, w.x, w.y, w.z];
+      this.kin._scale.set(1, 1, 1);
+    }
     const dq = this.kin.dlsStep(dx);
     if (dq) this.motion.nudge(dq);
   }

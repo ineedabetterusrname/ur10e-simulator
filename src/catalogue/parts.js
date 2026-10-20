@@ -347,7 +347,17 @@ export const PARTS = [
           get: () => inst.sys?.getYawDeg() ?? 0,
           set: (v) => inst.sys?.setYawDeg(v),
           fmt: (v) => `${v}°` },
-        { type: 'readout', label: 'Bricks', get: () => `${inst.sys?.count ?? 0} (drag to move · slider rotates the last one touched)` },
+        { type: 'readout', label: 'Bricks', get: () => `${inst.sys?.count ?? 0} (drag on floor to move)` },
+        { type: 'readout', label: 'Selected X,Y,Z', get: () => {
+          const c = inst.sys?.getSelectedBaseCoords();
+          return c ? `(${c[0].toFixed(3)}, ${c[1].toFixed(3)}, ${c[2].toFixed(3)}) m` : '—';
+        } },
+        { type: 'button', label: '📋 Copy (X, Y) for Python', onClick: () => {
+          const c = inst.sys?.getSelectedBaseCoords();
+          if (c && navigator.clipboard) {
+            navigator.clipboard.writeText(`(${c[0].toFixed(3)}, ${c[1].toFixed(3)})`);
+          }
+        } },
       ];
       return inst;
     },

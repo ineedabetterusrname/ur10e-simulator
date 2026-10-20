@@ -68,6 +68,20 @@ export class BrickSystem {
     return d ? Math.round(((d.yaw * 180 / Math.PI) % 360 + 360) % 360) : 0;
   }
 
+  /**
+   * Base-frame coordinates [x, y, z] (metres) of the selected brick's centre,
+   * transformed through robot.root so it matches ur_rtde poses (and accounts
+   * for the linear track if mounted).
+   */
+  getSelectedBaseCoords() {
+    const b = this.selected ?? this.bricks[this.bricks.length - 1];
+    if (!b) return null;
+    this.robot.root.updateMatrixWorld(true);
+    b.getWorldPosition(this._v);
+    this.robot.root.worldToLocal(this._v);
+    return [this._v.x, this._v.y, this._v.z];
+  }
+
   setYawDeg(deg) {
     const b = this.selected;
     if (!b || b === this.held) return; // can't twist a brick inside the gripper
